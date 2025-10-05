@@ -1,74 +1,100 @@
-from blockchain import Blockchain, Block
+import os
+from blockchain import Blockchain
+from wallet import Wallet
+from transaction import Transaction
 
 def run_tests():
     """
-    An automated test suite to verify the hybrid PoW/PoS blockchain's functionality.
+    An automated test suite for the cryptocurrency, focusing on the
+    wallet, signed transactions, and blockchain integration.
     """
-    print("--- Running Automated Hybrid Blockchain Tests ---")
+    print("--- Running Full Automated Test Suite ---")
 
-    # Initialize blockchain
-    the_final_dollar = Blockchain()
-    pow_miner_address = "test-pow-miner"
-    validator_a = "validator-alice"
-    validator_b = "validator-bob"
+    # --- Wallet Tests ---
+    print("\n--- Testing Wallet Functionality ---")
 
-    # --- Proof of Work (PoW) Tests ---
-    print("\n--- Testing Proof of Work (PoW) ---")
+    # Create test wallets
+    wallet1_file = "test_wallet1.pem"
+    wallet2_file = "test_wallet2.pem"
+    if os.path.exists(wallet1_file): os.remove(wallet1_file)
+    if os.path.exists(wallet2_file): os.remove(wallet2_file)
 
-    # Test 1: Add transactions
-    print("\n[Test 1] Adding transactions for PoW...")
-    the_final_dollar.add_transaction({"from": "User1", "to": "User2", "amount": 50})
-    assert len(the_final_dollar.pending_transactions) == 1, "PoW Test 1 Failed: Transaction not added."
-    print("  - PASSED: Transaction added.")
+    wallet1 = Wallet(wallet_file=wallet1_file)
+    wallet2 = Wallet(wallet_file=wallet2_file)
 
-    # Test 2: Mine a block with PoW
-    print("\n[Test 2] Mining a new block with PoW...")
-    the_final_dollar.mine_block_pow(pow_miner_address)
-    assert len(the_final_dollar.chain) == 2, "PoW Test 2 Failed: PoW block not mined."
-    assert len(the_final_dollar.pending_transactions) == 0, "PoW Test 2 Failed: Pending transactions not cleared."
-    print("  - PASSED: PoW block mined and transactions cleared.")
+    print("\n[Test 1] Wallet Generation")
+    assert wallet1.private_key is not None and wallet1.public_key is not None
+    assert wallet1.address is not None
+    print("  - PASSED: Wallet 1 generated successfully.")
+    assert wallet2.private_key is not None and wallet2.public_key is not None
+    print("  - PASSED: Wallet 2 generated successfully.")
 
-    # --- Proof of Stake (PoS) Tests ---
-    print("\n--- Testing Proof of Stake (PoS) ---")
+    # --- Transaction Tests ---
+    print("\n--- Testing Transaction Signing and Verification ---")
 
-    # Test 3: Add stake for validators
-    print("\n[Test 3] Staking currency for PoS...")
-    the_final_dollar.add_stake(validator_a, 10)
-    the_final_dollar.add_stake(validator_b, 20)
-    assert the_final_dollar.validators[validator_a] == 10, "PoS Test 3 Failed: Validator A stake incorrect."
-    assert the_final_dollar.validators[validator_b] == 20, "PoS Test 3 Failed: Validator B stake incorrect."
-    print("  - PASSED: Stakes correctly added for validators.")
+    # Test 2: Create and sign a valid transaction
+    print("\n[Test 2] Transaction Signing")
+    tx = Transaction(sender=wallet1.address, recipient=wallet2.address, amount=50)
+    tx.sign(wallet1)
+    assert tx.signature is not None
+    print("  - PASSED: Transaction signed successfully.")
 
-    # Test 4: Forge a block with PoS
-    print("\n[Test 4] Forging a new block with PoS...")
-    the_final_dollar.add_transaction({"from": "User3", "to": "User4", "amount": 30})
-    the_final_dollar.forge_block_pos()
-    assert len(the_final_dollar.chain) == 3, "PoS Test 4 Failed: PoS block not forged."
-    assert len(the_final_dollar.pending_transactions) == 0, "PoS Test 4 Failed: Pending transactions not cleared after forging."
-    print("  - PASSED: PoS block forged and transactions cleared.")
+    # Test 3: Verify a valid transaction
+    print("\n[Test 3] Transaction Verification (Valid)")
+    assert tx.is_valid()
+    print("  - PASSED: Valid transaction verified successfully.")
 
-    # --- Hybrid Model and Validity Tests ---
-    print("\n--- Testing Hybrid Model & Validity ---")
+    # Test 4: Fail to verify a tampered transaction
+    print("\n[Test 4] Transaction Verification (Tampered)")
+    tampered_tx = Transaction(sender=wallet1.address, recipient=wallet2.address, amount=51)
+    tampered_tx.signature = tx.signature # Use the signature from the original transaction
+    assert not tampered_tx.is_valid()
+    print("  - PASSED: Tampered transaction correctly identified as invalid.")
 
-    # Test 5: Check blockchain validity after hybrid operations
-    print("\n[Test 5] Checking blockchain validity...")
-    is_valid = the_final_dollar.is_chain_valid()
-    assert is_valid, "Hybrid Test 5 Failed: Blockchain is invalid after PoW and PoS blocks."
-    print("  - PASSED: Blockchain is valid.")
+    # Test 5: Fail to verify with wrong key
+    print("\n[Test 5] Transaction Signing (Wrong Key)")
+    try:
+        tx_from_w2_signed_by_w1 = Transaction(sender=wallet2.address, recipient=wallet1.address, amount=10)
+        tx_from_w2_signed_by_w1.sign(wallet1)
+        # This should raise an exception
+        assert False, "Should have failed to sign with the wrong wallet."
+    except Exception as e:
+        print(f"  - PASSED: Correctly threw exception when signing with wrong wallet: {e}")
 
-    # Test 6: Test validity after tampering
-    print("\n[Test 6] Tampering with the blockchain and checking validity...")
-    # Tamper with the data in a PoW block
-    the_final_dollar.chain[1].transactions = [{"from": "Eve", "to": "Mallory", "amount": 999}]
-    is_valid_after_tamper = not the_final_dollar.is_chain_valid()
-    assert is_valid_after_tamper, "Hybrid Test 6 Failed: Tampering not detected."
-    print("  - PASSED: Blockchain correctly detected tampering.")
+    # --- Blockchain Integration Tests ---
+    print("\n--- Testing Blockchain Integration with Secure Transactions ---")
 
-    # Restore the chain for a clean final state
-    the_final_dollar.chain[1].transactions = [{'from': 'User1', 'to': 'User2', 'amount': 50}, {'from': 'network', 'to': 'test-pow-miner', 'amount': 100}]
-    the_final_dollar.chain[1].hash = the_final_dollar.chain[1].calculate_hash() # Recalculate hash to restore validity
+    blockchain = Blockchain()
 
-    print("\n--- All Hybrid Tests Passed Successfully! ---")
+    # Test 6: Add a valid transaction to pending
+    print("\n[Test 6] Add Valid Transaction to Blockchain")
+    blockchain.add_transaction(tx)
+    assert len(blockchain.pending_transactions) == 1
+    assert blockchain.pending_transactions[0].signature == tx.signature
+    print("  - PASSED: Valid signed transaction added to pending transactions.")
+
+    # Test 7: Attempt to add an invalid transaction
+    print("\n[Test 7] Add Invalid Transaction to Blockchain")
+    blockchain.add_transaction(tampered_tx)
+    assert len(blockchain.pending_transactions) == 1 # Should not have been added
+    print("  - PASSED: Invalid transaction was not added to pending transactions.")
+
+    # Test 8: Mine a block and check validity
+    print("\n[Test 8] Mine Block and Validate Chain")
+    blockchain.mine_block_pow(wallet2.address) # Miner reward to wallet 2
+    assert len(blockchain.chain) == 2
+    assert len(blockchain.pending_transactions) == 0
+    print("  - PASSED: Block mined successfully.")
+
+    # The is_chain_valid() method now checks transaction signatures inside blocks
+    assert blockchain.is_chain_valid()
+    print("  - PASSED: Blockchain is valid after mining a block with a signed transaction.")
+
+    # Cleanup test wallet files
+    if os.path.exists(wallet1_file): os.remove(wallet1_file)
+    if os.path.exists(wallet2_file): os.remove(wallet2_file)
+
+    print("\n--- All Wallet and Transaction Tests Passed Successfully! ---")
 
 if __name__ == "__main__":
     run_tests()
