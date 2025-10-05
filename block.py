@@ -20,3 +20,25 @@ class Block:
             self.nonce += 1
             self.hash = self.calculate_hash()
         print("Block mined:", self.hash)
+
+    def to_dict(self):
+        return {
+            "index": self.index,
+            "transactions": self.transactions,
+            "timestamp": self.timestamp,
+            "previous_hash": self.previous_hash,
+            "nonce": self.nonce,
+            "hash": self.hash,
+        }
+
+    @classmethod
+    def from_dict(cls, block_dict):
+        block = cls(
+            index=block_dict['index'],
+            transactions=block_dict['transactions'],
+            previous_hash=block_dict['previous_hash'],
+            nonce=block_dict['nonce']
+        )
+        block.timestamp = block_dict['timestamp']
+        block.hash = block_dict['hash']
+        return block
